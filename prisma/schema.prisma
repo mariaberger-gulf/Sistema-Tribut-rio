@@ -1,0 +1,198 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id        Int      @id @default(autoincrement())
+  nome      String
+  email     String   @unique
+  senhaHash String
+  funcao    String   @default("Usuário")
+  status    String   @default("Ativo")
+  createdAt DateTime @default(now())
+
+  @@map("usuarios")
+}
+
+/// Empresas do grupo Ecotruck cadastradas no sistema (identifica de que lado
+/// da nota — emitente ou destinatário — a empresa está, para aplicar o
+/// regime tributário correto nas regras de crédito).
+model Empresa {
+  id               Int      @id @default(autoincrement())
+  cnpj             String   @unique
+  razaoSocial      String
+  nomeFantasia     String   @default("")
+  uf               String
+  regimeTributario String // "Simples Nacional" | "Lucro Presumido" | "Lucro Real"
+  createdAt        DateTime @default(now())
+
+  notasFiscais NotaFiscal[]
+
+  @@map("empresas")
+}
+
+model NotaFiscal {
+  id                Int      @id @default(autoincrement())
+  empresaId         Int?
+  empresa           Empresa? @relation(fields: [empresaId], references: [id])
+  chaveAcesso       String   @unique
+  numero            String
+  serie             String
+  dataEmissao       DateTime
+  tpNF              Int // 0 = entrada, 1 = saída
+  idDest            Int // 1 interna, 2 interestadual, 3 exterior
+  finNFe            Int // 1 normal, 2 complementar, 3 ajuste, 4 devolução
+  naturezaOperacao  String   @default("")
+  emitCnpj          String
+  emitNome          String
+  emitUf            String
+  emitCrt           Int // 1 Simples Nacional, 2 Simples excesso sublimite, 3 Regime Normal
+  destCnpj          String
+  destNome          String
+  destUf            String
+  valorProdutos     Float
+  valorIcms         Float    @default(0)
+  valorIpi          Float    @default(0)
+  valorPis          Float    @default(0)
+  valorCofins       Float    @default(0)
+  valorTotal        Float
+  xmlBruto          String
+  status            String   @default("Processada") // Processada | Erro
+  erroProcessamento String?
+  createdAt         DateTime @default(now())
+
+  itens ItemNotaFiscal[]
+
+  @@map("notas_fiscais")
+}
+
+model ItemNotaFiscal {
+  id             Int        @id @default(autoincrement())
+  notaFiscalId   Int
+  notaFiscal     NotaFiscal @relation(fields: [notaFiscalId], references: [id], onDelete: Cascade)
+  numeroItem     Int
+  codigoProduto  String
+  descricao      String
+  ncm            String
+  cest           String     @default("")
+  cfop           String
+  unidade        String
+  quantidade     Float
+  valorUnitario  Float
+  valorProduto   Float
+
+  origem         Int        @default(0)
+  cst            String     @default("") // regime normal
+  csosn          String     @default("") // Simples Nacional
+  modBC          Int        @default(0)
+  icmsBase       Float      @default(0)
+  icmsAliquota   Float      @default(0)
+  icmsValor      Float      @default(0)
+  icmsStBase     Float      @default(0)
+  icmsStAliquota Float      @default(0)
+  icmsStValor    Float      @default(0)
+  fcpAliquota    Float      @default(0)
+
+  ipiCst      String @default("")
+  ipiBase     Float  @default(0)
+  ipiAliquota Float  @default(0)
+  ipiValor    Float  @default(0)
+
+  pisCst      String @default("")
+  pisBase     Float  @default(0)
+  pisAliquota Float  @default(0)
+  pisValor    Float  @default(0)
+
+  cofinsCst      String @default("")
+  cofinsBase     Float  @default(0)
+  cofinsAliquota Float  @default(0)
+  cofinsValor    Float  @default(0)
+
+  createdAt DateTime @default(now())
+
+  validacoes  ValidacaoClassificacao[]
+  creditos    CreditoTributario[]
+  simulacoes  SimulacaoReforma[]
+
+  @@map("itens_nota_fiscal")
+}
+
+model ValidacaoClassificacao {
+  id               Int            @id @default(autoincrement())
+  itemNotaFiscalId Int
+  item             ItemNotaFiscal @relation(fields: [itemNotaFiscalId], references: [id], onDelete: Cascade)
+  regra            String // código da regra, ex: "CFOP_UF_MISMATCH"
+  severidade       String // "erro" | "aviso"
+  mensagem         String
+  createdAt        DateTime       @default(now())
+
+  @@map("validacoes_classificacao")
+}
+
+model CreditoTributario {
+  id               Int            @id @default(autoincrement())
+  itemNotaFiscalId Int
+  item             ItemNotaFiscal @relation(fields: [itemNotaFiscalId], references: [id], onDelete: Cascade)
+  tipoImposto      String // "ICMS" | "PIS" | "COFINS"
+  elegivel         Boolean
+  valorCredito     Float          @default(0)
+  motivo           String
+  createdAt        DateTime       @default(now())
+
+  @@map("creditos_tributarios")
+}
+
+model SimulacaoReforma {
+  id               Int            @id @default(autoincrement())
+  itemNotaFiscalId Int
+  item             ItemNotaFiscal @relation(fields: [itemNotaFiscalId], references: [id], onDelete: Cascade)
+  anoReferencia    Int
+  categoriaAliquota String // "padrao" | "reduzida40" | "reduzida60" | "isenta"
+  aliquotaCbs      Float
+  aliquotaIbs      Float
+  aliquotaIs       Float
+  valorCbs         Float
+  valorIbs         Float
+  valorIs          Float
+  valorAtual       Float // carga hoje: ICMS + IPI + PIS + COFINS do item
+  valorReforma     Float // CBS + IBS + IS do item, já ponderado pelo blend de transição do ano
+  delta            Float // valorReforma - valorAtual
+  createdAt        DateTime       @default(now())
+
+  @@map("simulacoes_reforma")
+}
+
+/// Tabela de referência editável: mapeia prefixos de NCM para a categoria de
+/// alíquota (padrão, reduzida ou isenta) e sinaliza produtos sujeitos ao
+/// Imposto Seletivo. Editável via /configuracao porque a regulamentação da
+/// reforma (Anexos da LC 214/2025) ainda está sendo detalhada.
+model TabelaAliquota {
+  id               Int      @id @default(autoincrement())
+  prefixoNcm       String // ex: "1006" (arroz); "" = categoria padrão (catch-all)
+  descricao        String
+  categoria        String // "padrao" | "reduzida40" | "reduzida60" | "isenta"
+  seletivo         Boolean  @default(false)
+  aliquotaSeletivo Float    @default(0)
+  ativo            Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("tabela_aliquotas")
+}
+
+/// Configuração global (linha única) das alíquotas padrão de CBS/IBS
+/// enquanto a definição final do Senado não é publicada.
+model ConfiguracaoReforma {
+  id                Int      @id @default(autoincrement())
+  aliquotaPadraoCbs Float    @default(8.8)
+  aliquotaPadraoIbs Float    @default(17.7)
+  updatedAt         DateTime @updatedAt
+
+  @@map("configuracao_reforma")
+}
