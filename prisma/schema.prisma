@@ -25,18 +25,47 @@ model Usuario {
 /// da nota — emitente ou destinatário — a empresa está, para aplicar o
 /// regime tributário correto nas regras de crédito).
 model Empresa {
-  id               Int      @id @default(autoincrement())
-  cnpj             String   @unique
-  razaoSocial      String
-  nomeFantasia     String   @default("")
-  municipio        String   @default("")
-  uf               String
-  regimeTributario String // "Simples Nacional" | "Lucro Presumido" | "Lucro Real"
-  createdAt        DateTime @default(now())
+  id                     Int      @id @default(autoincrement())
+  cnpj                   String   @unique
+  razaoSocial            String
+  nomeFantasia           String   @default("")
+  municipio              String   @default("")
+  uf                     String
+  regimeTributario       String // "Simples Nacional" | "Lucro Presumido" | "Lucro Real"
+  cnaePrincipalCodigo    String   @default("")
+  cnaePrincipalDescricao String   @default("")
+  createdAt              DateTime @default(now())
 
-  notasFiscais NotaFiscal[]
+  notasFiscais     NotaFiscal[]
+  cnaesSecundarios CnaeSecundario[]
+  objetoSocial     ObjetoSocialItem[]
 
   @@map("empresas")
+}
+
+/// CNAEs secundários registrados na Receita Federal para o CNPJ da empresa.
+model CnaeSecundario {
+  id        Int     @id @default(autoincrement())
+  empresaId Int
+  empresa   Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  codigo    String // ex: "45.20-0-07"
+  descricao String
+
+  @@unique([empresaId, codigo])
+  @@map("cnaes_secundarios")
+}
+
+/// Itens do objeto social conforme o Estatuto/Contrato Social (podem diferir
+/// dos CNAEs registrados na Receita Federal — refletem o texto societário).
+model ObjetoSocialItem {
+  id        Int      @id @default(autoincrement())
+  empresaId Int
+  empresa   Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  descricao String
+  origem    String   @default("") // ex: "Alteração 5.1 do Estatuto Social"
+  createdAt DateTime @default(now())
+
+  @@map("objeto_social_itens")
 }
 
 model NotaFiscal {

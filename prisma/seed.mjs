@@ -57,17 +57,53 @@ async function main() {
     },
   });
 
-  await prisma.empresa.upsert({
-    where: { cnpj: '00000000000000' },
-    update: {},
-    create: {
-      cnpj: '00000000000000',
-      razaoSocial: 'Ecotruck Transportes Ltda',
-      nomeFantasia: 'Ecotruck',
-      uf: 'SP',
-      regimeTributario: 'Lucro Real',
-    },
-  });
+  const CNAE_PRINCIPAL = { codigo: '80.20-0-01', descricao: 'Atividades de monitoramento de sistemas de segurança eletrônico' };
+  const CNAES_SECUNDARIOS = [
+    { codigo: '45.20-0-07', descricao: 'Serviços de instalação, manutenção e reparação de acessórios para veículos automotores' },
+    { codigo: '47.51-2-01', descricao: 'Comércio varejista especializado de equipamentos e suprimentos de informática' },
+    { codigo: '77.39-0-99', descricao: 'Aluguel de outras máquinas e equipamentos comerciais e industriais não especificados anteriormente, sem operador' },
+  ];
+  const OBJETO_SOCIAL = [
+    { descricao: 'Atividades de desenvolvimento de sistemas e monitoramento de frotas, monitoramento de implementos automotivos e monitoramento de implementos agrícolas', origem: 'Alteração 5.1 do Estatuto Social' },
+    { descricao: 'Serviços de instalação, manutenção e reparação de acessórios para veículos automotores', origem: 'Alteração 5.1 do Estatuto Social' },
+    { descricao: 'Aluguel de equipamentos comerciais e industriais não especificado anteriormente, sem operador', origem: 'Alteração 5.1 do Estatuto Social' },
+    { descricao: 'Comercio de componentes eletrônicos e rastreadores', origem: 'Alteração 5.1 do Estatuto Social' },
+  ];
+
+  const empresaExistente = await prisma.empresa.findFirst({ where: { OR: [{ cnpj: '00000000000000' }, { cnpj: '46680523000127' }] } });
+  const empresa = empresaExistente
+    ? await prisma.empresa.update({
+        where: { id: empresaExistente.id },
+        data: {
+          cnpj: '46680523000127',
+          cnaePrincipalCodigo: CNAE_PRINCIPAL.codigo,
+          cnaePrincipalDescricao: CNAE_PRINCIPAL.descricao,
+        },
+      })
+    : await prisma.empresa.create({
+        data: {
+          cnpj: '46680523000127',
+          razaoSocial: 'Ecotruck Transportes Ltda',
+          nomeFantasia: 'Ecotruck',
+          uf: 'SP',
+          regimeTributario: 'Lucro Real',
+          cnaePrincipalCodigo: CNAE_PRINCIPAL.codigo,
+          cnaePrincipalDescricao: CNAE_PRINCIPAL.descricao,
+        },
+      });
+
+  for (const c of CNAES_SECUNDARIOS) {
+    await prisma.cnaeSecundario.upsert({
+      where: { empresaId_codigo: { empresaId: empresa.id, codigo: c.codigo } },
+      update: { descricao: c.descricao },
+      create: { empresaId: empresa.id, ...c },
+    });
+  }
+
+  const objetoExistente = await prisma.objetoSocialItem.count({ where: { empresaId: empresa.id } });
+  if (objetoExistente === 0) {
+    await prisma.objetoSocialItem.createMany({ data: OBJETO_SOCIAL.map((o) => ({ empresaId: empresa.id, ...o })) });
+  }
 
   await prisma.configuracaoReforma.upsert({
     where: { id: 1 },
