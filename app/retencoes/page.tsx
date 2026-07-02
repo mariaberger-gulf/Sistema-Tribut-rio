@@ -6,8 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SeletorItemServico, type ItemServico } from "@/components/retencoes/SeletorItemServico";
 import { ResultadoRetencao } from "@/components/retencoes/ResultadoRetencao";
+import { TabelaFederalIrPcc } from "@/components/retencoes/TabelaFederalIrPcc";
 import { Loader2 } from "lucide-react";
 
 export default function RetencoesPage() {
@@ -58,7 +60,7 @@ export default function RetencoesPage() {
   };
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6">
+    <div className="p-8 max-w-7xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Retenções na Fonte</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -67,67 +69,80 @@ export default function RetencoesPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
-        <Card>
-          <CardHeader><CardTitle>Dados do serviço</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Item da lista de serviços (LC 116)</Label>
-              <SeletorItemServico value={item} onChange={setItem} />
-            </div>
+      <Tabs defaultValue="apuracao">
+        <TabsList>
+          <TabsTrigger value="apuracao">Apuração</TabsTrigger>
+          <TabsTrigger value="tabela-federal">Tabela Federal (IR-PCC)</TabsTrigger>
+        </TabsList>
 
-            <div className="space-y-1.5">
-              <Label>Município do tomador (Ecotruck)</Label>
-              <Select value={municipio} onValueChange={(v) => v && setMunicipio(v)}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Selecione o município" /></SelectTrigger>
-                <SelectContent>
-                  {municipios.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+        <TabsContent value="apuracao">
+          <div className="grid grid-cols-2 gap-6 max-w-5xl">
+            <Card>
+              <CardHeader><CardTitle>Dados do serviço</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label>Item da lista de serviços (LC 116)</Label>
+                  <SeletorItemServico value={item} onChange={setItem} />
+                </div>
 
-            <div className="space-y-1.5">
-              <Label>Valor do serviço (R$)</Label>
-              <Input type="number" step="0.01" value={valorServico} onChange={(e) => setValorServico(e.target.value)} />
-            </div>
+                <div className="space-y-1.5">
+                  <Label>Município do tomador (Ecotruck)</Label>
+                  <Select value={municipio} onValueChange={(v) => v && setMunicipio(v)}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Selecione o município" /></SelectTrigger>
+                    <SelectContent>
+                      {municipios.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={simplesNacional} onChange={(e) => setSimplesNacional(e.target.checked)} />
-              Prestador é optante pelo Simples Nacional
-            </label>
+                <div className="space-y-1.5">
+                  <Label>Valor do serviço (R$)</Label>
+                  <Input type="number" step="0.01" value={valorServico} onChange={(e) => setValorServico(e.target.value)} />
+                </div>
 
-            {simplesNacional && (
-              <div className="space-y-1.5 pl-6">
-                <Label>Alíquota de ISS informada na NF do prestador (%)</Label>
-                <Input type="number" step="0.01" value={aliquotaNf} onChange={(e) => setAliquotaNf(e.target.value)} />
-              </div>
-            )}
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={simplesNacional} onChange={(e) => setSimplesNacional(e.target.checked)} />
+                  Prestador é optante pelo Simples Nacional
+                </label>
 
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={cessaoMaoDeObra} onChange={(e) => setCessaoMaoDeObra(e.target.checked)} />
-              Serviço prestado mediante cessão de mão de obra ou empreitada
-            </label>
+                {simplesNacional && (
+                  <div className="space-y-1.5 pl-6">
+                    <Label>Alíquota de ISS informada na NF do prestador (%)</Label>
+                    <Input type="number" step="0.01" value={aliquotaNf} onChange={(e) => setAliquotaNf(e.target.value)} />
+                  </div>
+                )}
 
-            {erro && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{erro}</p>}
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={cessaoMaoDeObra} onChange={(e) => setCessaoMaoDeObra(e.target.checked)} />
+                  Serviço prestado mediante cessão de mão de obra ou empreitada
+                </label>
 
-            <Button onClick={apurar} disabled={loading} className="w-full">
-              {loading ? <Loader2 className="animate-spin" /> : null}
-              {loading ? "Apurando..." : "Apurar retenções"}
-            </Button>
-          </CardContent>
-        </Card>
+                {erro && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{erro}</p>}
 
-        <Card>
-          <CardHeader><CardTitle>Resultado</CardTitle></CardHeader>
-          <CardContent>
-            {resultado ? (
-              <ResultadoRetencao resultado={resultado.resultado} />
-            ) : (
-              <p className="text-sm text-muted-foreground">Preencha os dados ao lado e clique em "Apurar retenções".</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                <Button onClick={apurar} disabled={loading} className="w-full">
+                  {loading ? <Loader2 className="animate-spin" /> : null}
+                  {loading ? "Apurando..." : "Apurar retenções"}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle>Resultado</CardTitle></CardHeader>
+              <CardContent>
+                {resultado ? (
+                  <ResultadoRetencao resultado={resultado.resultado} />
+                ) : (
+                  <p className="text-sm text-muted-foreground">Preencha os dados ao lado e clique em "Apurar retenções".</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="tabela-federal">
+          <TabelaFederalIrPcc />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
