@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { labelCategoriaAliquota } from "@/lib/utils";
 
 interface TabelaItem {
   id: number;
@@ -159,7 +160,7 @@ export default function ConfiguracaoPage() {
                 <TableRow key={item.id}>
                   <TableCell className="font-mono">{item.prefixoNcm || "(padrão)"}</TableCell>
                   <TableCell>{item.descricao}</TableCell>
-                  <TableCell><Badge variant="outline">{item.categoria}</Badge></TableCell>
+                  <TableCell><Badge variant="outline">{labelCategoriaAliquota(item.categoria)}</Badge></TableCell>
                   <TableCell>{item.seletivo ? `Sim (${item.aliquotaSeletivo}%)` : "Não"}</TableCell>
                   <TableCell>
                     <button onClick={() => alternarAtivo(item)}>

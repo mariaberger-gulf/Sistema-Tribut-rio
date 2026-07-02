@@ -6,7 +6,7 @@ import { ArrowLeft, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { formatMoeda, formatData } from "@/lib/utils";
+import { formatMoeda, formatData, labelCategoriaAliquota } from "@/lib/utils";
 
 const ANOS = [2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033];
 
@@ -159,7 +159,7 @@ export default function NotaFiscalDetalhePage({ params }: { params: Promise<{ id
                   <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Simulação {ano}</p>
                   {simulacao ? (
                     <div className="text-sm space-y-1">
-                      <p>Categoria: <Badge variant="outline">{simulacao.categoriaAliquota}</Badge></p>
+                      <p>Categoria: <Badge variant="outline">{labelCategoriaAliquota(simulacao.categoriaAliquota)}</Badge></p>
                       <p className="text-muted-foreground">CBS ({simulacao.aliquotaCbs.toFixed(2)}%): {formatMoeda(simulacao.valorCbs)}</p>
                       <p className="text-muted-foreground">IBS ({simulacao.aliquotaIbs.toFixed(2)}%): {formatMoeda(simulacao.valorIbs)}</p>
                       {simulacao.valorIs > 0 && (
