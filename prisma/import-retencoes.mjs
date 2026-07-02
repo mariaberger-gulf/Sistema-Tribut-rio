@@ -33,6 +33,13 @@ async function lerPrevidencia() {
   return mapa;
 }
 
+// A aba "Retenções Federais (IR-PCC)" não tem a linha de cabeçalho do grupo 14
+// (pula direto de 13.05 para 14.01a), diferente da aba "Previdência Social",
+// que traz "14 - Serviços relativos a bens de terceiros." explicitamente.
+const GRUPOS_SEM_CABECALHO_NA_ABA_FEDERAL = {
+  '14': 'Serviços relativos a bens de terceiros.',
+};
+
 async function importarItensServico() {
   const previdencia = await lerPrevidencia();
   const rows = XLSX.utils.sheet_to_json(wb.Sheets['Retenções Federais (IR-PCC)'], { header: 1, range: 1 });
@@ -54,12 +61,13 @@ async function importarItensServico() {
     if (vistos.has(codigo)) continue;
     vistos.add(codigo);
 
+    const itemGrupo = codigoBase.split('.')[0];
     const prev = previdencia.get(codigoBase) ?? { inss: '—', observacaoInss: '' };
     itens.push({
       codigo,
       codigoBase,
-      itemGrupo: codigoBase.split('.')[0],
-      grupoDescricao,
+      itemGrupo,
+      grupoDescricao: GRUPOS_SEM_CABECALHO_NA_ABA_FEDERAL[itemGrupo] ?? grupoDescricao,
       descricao: texto(descricao, ''),
       pis: texto(pis),
       cofins: texto(cofins),

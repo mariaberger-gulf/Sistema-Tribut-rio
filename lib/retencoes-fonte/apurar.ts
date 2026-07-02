@@ -186,6 +186,35 @@ function apurarIss(
   return { tributo: "ISS", status: "elegivel", valor: valorServico * issRef.aliquota, aliquota: issRef.aliquota * 100, motivo: issRef.observacao || "Retenção devida conforme legislação municipal do tomador." };
 }
 
+export interface ResultadoApuracaoFederal {
+  pcc: ResultadoTributo[];
+  irrf: ResultadoTributo;
+  valorTotalRetido: number;
+  atencao: string[];
+}
+
+/** Apuração restrita à Tabela Federal (IR-PCC): PIS/COFINS/CSLL e IRRF. Não considera INSS (Previdência Social) nem ISS (por município). */
+export function apurarRetencaoFederal(
+  item: ItemServicoRef,
+  valorServico: number,
+  prestadorSimplesNacional: boolean
+): ResultadoApuracaoFederal {
+  const pcc = aplicarDispensaPcc(apurarPcc(item, valorServico, prestadorSimplesNacional));
+  const irrf = apurarIrrf(item, valorServico, prestadorSimplesNacional);
+  const valorTotalRetido = pcc.reduce((acc, t) => acc + t.valor, 0) + irrf.valor;
+
+  const atencao: string[] = [];
+  if ([...pcc, irrf].some((t) => t.status === "condicional")) {
+    atencao.push("Há tributo(s) marcado(s) como condicional — a fonte original indica que depende do caso concreto (objeto exato do serviço na NF/contrato).");
+  }
+  if (item.observacaoFederal && item.observacaoFederal !== "—") {
+    atencao.push(`Observação: ${item.observacaoFederal}`);
+  }
+
+  return { pcc, irrf, valorTotalRetido, atencao };
+}
+
+/** Apuração completa (Federal + INSS + ISS) — não usada pela tela de Apuração atual (restrita à Tabela Federal), mantida para uma futura visão combinada. */
 export function apurarRetencoes(input: ApurarRetencoesInput): ResultadoApuracao {
   const { item, valorServico, prestadorSimplesNacional, cessaoMaoDeObra, issRef, municipioParticularidade, aliquotaIssInformadaNaNf } = input;
 

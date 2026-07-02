@@ -13,8 +13,6 @@ interface Tributo {
 interface Resultado {
   pcc: Tributo[];
   irrf: Tributo;
-  inss: Tributo;
-  iss: Tributo;
   valorTotalRetido: number;
   atencao: string[];
 }
@@ -48,14 +46,6 @@ export function ResultadoRetencao({ resultado }: { resultado: Resultado }) {
       <div>
         <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">IRRF</p>
         <LinhaTributo t={resultado.irrf} />
-      </div>
-      <div>
-        <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">INSS</p>
-        <LinhaTributo t={resultado.inss} />
-      </div>
-      <div>
-        <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">ISS</p>
-        <LinhaTributo t={resultado.iss} />
       </div>
 
       <div className="flex items-center justify-between pt-3 border-t border-border">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -59,6 +59,15 @@ export function TabelaFederalIrPcc() {
     );
   }, [itensOrdenados, busca]);
 
+  const grupos = useMemo(() => {
+    const mapa = new Map<string, { grupoDescricao: string; itens: ItemFederal[] }>();
+    for (const item of itensFiltrados) {
+      if (!mapa.has(item.itemGrupo)) mapa.set(item.itemGrupo, { grupoDescricao: item.grupoDescricao, itens: [] });
+      mapa.get(item.itemGrupo)!.itens.push(item);
+    }
+    return [...mapa.entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
+  }, [itensFiltrados]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -97,24 +106,30 @@ export function TabelaFederalIrPcc() {
             {!loading && itensFiltrados.length === 0 && (
               <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nenhum item encontrado.</TableCell></TableRow>
             )}
-            {itensFiltrados.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell className="font-mono font-medium whitespace-nowrap align-top">{item.codigo}</TableCell>
-                <TableCell className="whitespace-normal min-w-64 align-top">
-                  <p>{item.descricao}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{item.grupoDescricao}</p>
-                </TableCell>
-                <TableCell className="align-top"><BadgeStatus valor={item.pis} /></TableCell>
-                <TableCell className="align-top"><BadgeStatus valor={item.cofins} /></TableCell>
-                <TableCell className="align-top"><BadgeStatus valor={item.csll} /></TableCell>
-                <TableCell className="align-top"><BadgeStatus valor={item.irrf15} /></TableCell>
-                <TableCell className="align-top"><BadgeStatus valor={item.irrf10} /></TableCell>
-                <TableCell className="align-top"><BadgeStatus valor={item.inss} /></TableCell>
-                <TableCell className="whitespace-normal min-w-56 text-xs text-muted-foreground align-top">
-                  {item.observacaoFederal && item.observacaoFederal !== "—" && <p>{item.observacaoFederal}</p>}
-                  {item.observacaoInss && <p className="mt-1">INSS: {item.observacaoInss}</p>}
-                </TableCell>
-              </TableRow>
+            {grupos.map(([numeroGrupo, grupo]) => (
+              <Fragment key={numeroGrupo}>
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={9} className="bg-indigo-50 dark:bg-indigo-950/40 font-semibold text-foreground border-y border-indigo-100 dark:border-indigo-900">
+                    {numeroGrupo} - {grupo.grupoDescricao}
+                  </TableCell>
+                </TableRow>
+                {grupo.itens.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-mono font-medium whitespace-nowrap align-top">{item.codigo}</TableCell>
+                    <TableCell className="whitespace-normal min-w-64 align-top">{item.descricao}</TableCell>
+                    <TableCell className="align-top"><BadgeStatus valor={item.pis} /></TableCell>
+                    <TableCell className="align-top"><BadgeStatus valor={item.cofins} /></TableCell>
+                    <TableCell className="align-top"><BadgeStatus valor={item.csll} /></TableCell>
+                    <TableCell className="align-top"><BadgeStatus valor={item.irrf15} /></TableCell>
+                    <TableCell className="align-top"><BadgeStatus valor={item.irrf10} /></TableCell>
+                    <TableCell className="align-top"><BadgeStatus valor={item.inss} /></TableCell>
+                    <TableCell className="whitespace-normal min-w-56 text-xs text-muted-foreground align-top">
+                      {item.observacaoFederal && item.observacaoFederal !== "—" && <p>{item.observacaoFederal}</p>}
+                      {item.observacaoInss && <p className="mt-1">INSS: {item.observacaoInss}</p>}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </Fragment>
             ))}
           </TableBody>
         </Table>
