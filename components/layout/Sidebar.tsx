@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, Receipt, Settings, Scale, LogOut, Sun, Moon,
+  LayoutDashboard, Receipt, Settings, Scale, LogOut, Sun, Moon, FileMinus2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
@@ -12,6 +12,7 @@ import { useTheme } from "./ThemeProvider";
 const navItems = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Notas Fiscais", href: "/notas-fiscais", icon: Receipt },
+  { label: "Retenções na Fonte", href: "/retencoes", icon: FileMinus2 },
   { label: "Configuração", href: "/configuracao", icon: Settings },
 ];
 

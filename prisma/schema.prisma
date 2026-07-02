@@ -29,6 +29,7 @@ model Empresa {
   cnpj             String   @unique
   razaoSocial      String
   nomeFantasia     String   @default("")
+  municipio        String   @default("")
   uf               String
   regimeTributario String // "Simples Nacional" | "Lucro Presumido" | "Lucro Real"
   createdAt        DateTime @default(now())
@@ -196,4 +197,83 @@ model ConfiguracaoReforma {
   updatedAt         DateTime @updatedAt
 
   @@map("configuracao_reforma")
+}
+
+// ---------------------------------------------------------------------------
+// Retenções na Fonte (IRRF, PIS/COFINS/CSLL, INSS, ISS) por item da lista de
+// serviços da LC 116/2003. Fonte: planilha do escritório
+// (prisma/data/retencoes-fonte-lc116.xlsx), importada via `npm run import:retencoes`.
+// ---------------------------------------------------------------------------
+
+/// Catálogo de itens/subitens da lista de serviços da LC 116/2003, com as
+/// regras de retenção federal (PIS/COFINS/CSLL = "PCC" e IRRF) e previdenciária
+/// (INSS). Um mesmo subitem oficial pode aparecer desdobrado em variantes
+/// (sufixo "a"/"b"/"-A"/"-B") quando a fonte identifica tratamentos tributários
+/// diferentes para hipóteses distintas do mesmo subitem.
+model ItemServicoLC116 {
+  id             Int    @id @default(autoincrement())
+  codigo         String @unique // ex: "7.05", "7.09 a", "12.13-A"
+  codigoBase     String // ex: "7.05", "7.09", "12.13" — sem sufixo, usado para casar com ISS/INSS
+  itemGrupo      String // ex: "7" — número do grupo/capítulo da lista
+  grupoDescricao String @default("")
+  descricao      String
+
+  pis               String // "SIM" | "NAO" | "SIM/NAO" | "NAO/SIM" | "NA"
+  cofins            String
+  csll              String
+  irrf15            String // IRRF 1,5% (serviços profissionais, rol taxativo)
+  irrf10            String // IRRF 1,0% (limpeza, conservação, segurança, vigilância, locação de mão de obra)
+  observacaoFederal String @default("")
+
+  inss           String @default("NA") // "SIM" | "NAO" | "NA" (segue a base pela cessão de mão de obra)
+  observacaoInss String @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("itens_servico_lc116")
+}
+
+/// Alíquota e obrigatoriedade de retenção de ISS por município (legislação do
+/// município do TOMADOR do serviço) e por item da lista de serviços.
+model RetencaoIssMunicipio {
+  id         Int    @id @default(autoincrement())
+  municipio  String
+  codigoBase String // casa com ItemServicoLC116.codigoBase
+  descricao  String @default("")
+  aliquota   Float?
+  retencao   String // "SIM" | "NAO" | "NA"
+  observacao String @default("")
+
+  @@unique([municipio, codigoBase])
+  @@index([municipio])
+  @@map("retencoes_iss_municipio")
+}
+
+/// Particularidades e obrigações acessórias por município (ex: cadastro CENE/
+/// CPOM de prestadores não estabelecidos) que afetam a obrigação de retenção.
+model MunicipioParticularidade {
+  id              Int    @id @default(autoincrement())
+  municipio       String @unique
+  particularidade String
+
+  @@map("municipio_particularidades")
+}
+
+/// Tabelas do Simples Nacional (Anexo III — serviços em geral; Anexo IV —
+/// serviços do §5º-C art. 18 LC 123/2006, sem partilha de INSS) por faixa de
+/// receita bruta acumulada em 12 meses.
+model SimplesNacionalFaixa {
+  id              Int    @id @default(autoincrement())
+  anexo           String // "III" | "IV"
+  faixaMin        Float
+  faixaMax        Float?
+  aliquotaNominal Float
+  irpj            Float
+  csll            Float
+  cofins          Float
+  pis             Float
+  iss             Float
+
+  @@map("simples_nacional_faixas")
 }
