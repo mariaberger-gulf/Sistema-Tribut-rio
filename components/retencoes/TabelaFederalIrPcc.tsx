@@ -1,9 +1,11 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { EditarItemFederalDialog, type ItemFederalEditavel } from "./EditarItemFederalDialog";
 
 interface ItemFederal {
   id: number;
@@ -38,13 +40,17 @@ export function TabelaFederalIrPcc() {
   const [itens, setItens] = useState<ItemFederal[]>([]);
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
+  const [itemEmEdicao, setItemEmEdicao] = useState<ItemFederalEditavel | null>(null);
+  const [dialogAberto, setDialogAberto] = useState(false);
 
-  useEffect(() => {
+  const carregar = useCallback(() => {
     fetch("/api/retencoes/itens?all=1")
       .then((r) => r.json())
       .then((d) => setItens(d.itens ?? []))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
 
   const itensOrdenados = useMemo(
     () => [...itens].sort((a, b) => numeroOrdenacao(a.codigoBase) - numeroOrdenacao(b.codigoBase) || a.codigo.localeCompare(b.codigo)),
@@ -97,19 +103,20 @@ export function TabelaFederalIrPcc() {
               <TableHead>IRRF 1,0%</TableHead>
               <TableHead>INSS</TableHead>
               <TableHead>Observações</TableHead>
+              <TableHead className="w-10"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading && (
-              <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Carregando...</TableCell></TableRow>
             )}
             {!loading && itensFiltrados.length === 0 && (
-              <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nenhum item encontrado.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Nenhum item encontrado.</TableCell></TableRow>
             )}
             {grupos.map(([numeroGrupo, grupo]) => (
               <Fragment key={numeroGrupo}>
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={9} className="bg-indigo-50 dark:bg-indigo-950/40 font-semibold text-foreground border-y border-indigo-100 dark:border-indigo-900">
+                  <TableCell colSpan={10} className="bg-indigo-50 dark:bg-indigo-950/40 font-semibold text-foreground border-y border-indigo-100 dark:border-indigo-900">
                     {numeroGrupo} - {grupo.grupoDescricao}
                   </TableCell>
                 </TableRow>
@@ -127,6 +134,15 @@ export function TabelaFederalIrPcc() {
                       {item.observacaoFederal && item.observacaoFederal !== "—" && <p>{item.observacaoFederal}</p>}
                       {item.observacaoInss && <p className="mt-1">INSS: {item.observacaoInss}</p>}
                     </TableCell>
+                    <TableCell className="align-top">
+                      <button
+                        onClick={() => { setItemEmEdicao(item); setDialogAberto(true); }}
+                        className="text-muted-foreground hover:text-foreground"
+                        title="Editar"
+                      >
+                        <Pencil className="size-4" />
+                      </button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </Fragment>
@@ -134,6 +150,13 @@ export function TabelaFederalIrPcc() {
           </TableBody>
         </Table>
       </div>
+
+      <EditarItemFederalDialog
+        item={itemEmEdicao}
+        aberto={dialogAberto}
+        onOpenChange={setDialogAberto}
+        onSalvo={carregar}
+      />
     </div>
   );
 }
