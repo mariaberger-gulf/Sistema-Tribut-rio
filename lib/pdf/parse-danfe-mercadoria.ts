@@ -8,7 +8,26 @@ export interface ResultadoDanfeMercadoria {
 }
 
 const REGEX_CHAVE = /(\d{4}\s\d{4}\s\d{4}\s\d{4}\s\d{4}\s\d{4}\s\d{4}\s\d{4}\s\d{4}\s\d{4}\s\d{4})/;
-const REGEX_ITEM = /^(\S+)\s+(.+?)\s+(\d{7,8})\s+(\d{3,4})\s+([1-7]\d{3})\s+([A-ZÇ]{1,4})\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)$/gm;
+
+// Dois layouts de tabela de produtos observados em DANFEs reais (o texto
+// extraído do PDF preserva a ordem visual das colunas, que varia por
+// software emissor). Espaçamento intra-linha usa só [ \t] (não \s) para
+// impedir que o separador atravesse quebras de linha e funda duas linhas
+// distintas num só match.
+//
+// Layout A (ex: UniDANFE): CÓDIGO DESCRIÇÃO NCM CST/CSOSN CFOP UNID QUANT
+// VALOR_UNIT VALOR_TOTAL [demais colunas de ICMS, variáveis, não capturadas].
+const REGEX_ITEM_LAYOUT_A =
+  /^(\S+)[ \t]+(.*?)[ \t]*(\d{7,8})[ \t]+(\d{3,4})[ \t]+([1-7]\d{3})[ \t]+([A-ZÇ]{1,4})\.?[ \t]+([\d.,]+)[ \t]+([\d.,]+)[ \t]+([\d.,]+)/gm;
+
+// Layout B (ex: SupraSys): CÓDIGO(EAN) CFOP UNID QUANT VALOR_UNIT VALOR_TOTAL
+// [desconto, base ICMS, valor ICMS, valor IPI, alíq. ICMS, alíq. IPI —
+// quantidade variável de colunas] TAB CST/CSOSN TAB NCM. A descrição fica em
+// linha(s) anteriores ao código, nunca na mesma linha. Os dois últimos campos
+// (CST e NCM) são identificados pelo TAB literal que os separa dos demais
+// números — sem isso não dá pra distingui-los das colunas de valor.
+const REGEX_ITEM_LAYOUT_B =
+  /^(\S+)[ \t]+([1-7]\d{3})[ \t]+([A-ZÇ]{1,4})[ \t]+([\d.,]+)[ \t]+([\d.,]+)[ \t]+([\d.,]+)(?:[ \t]+[\d.,]+)*\t(\d{3,4})\t(\d{7,8})[ \t]*$/gm;
 
 const PALAVRAS_ROTULO = /INSCRI[ÇC][ÃA]O|CNPJ|IDENTIFICA[ÇC][ÃA]O|DANFE|DOCUMENTO|AUXILIAR|ELETR[ÔO]NICA|NOTA FISCAL|CHAVE DE ACESSO|CONSULTA|NATUREZA|OPERA[ÇC][ÃA]O|PROTOCOLO|AUTORIZA[ÇC][ÃA]O|DESTINAT[ÁA]RIO|EMITENTE|FOLHA/i;
 
@@ -49,6 +68,58 @@ const NATUREZAS_CONHECIDAS = /(VENDA DE MERCADORIAS?[A-ZÀ-Ú\s/]*|DEVOLU[ÇC][�
 function extrairNaturezaOperacao(texto: string): string {
   const m = texto.match(NATUREZAS_CONHECIDAS);
   return m ? m[1].trim().replace(/\s{2,}/g, " ") : "";
+}
+
+interface ItemBruto {
+  codigoProduto: string;
+  descricaoInline: string; // "" quando o layout não traz a descrição na mesma linha do código
+  ncm: string;
+  codigoTributario: string;
+  cfop: string;
+  unidade: string;
+  quant: string;
+  valorUnit: string;
+  valorProd: string;
+  indice: number; // posição do match no texto — usada para buscar a descrição em linhas anteriores
+}
+
+function extrairItensLayoutA(texto: string): ItemBruto[] {
+  const itens: ItemBruto[] = [];
+  for (const m of texto.matchAll(REGEX_ITEM_LAYOUT_A)) {
+    const [, codigoProduto, descricaoInline, ncm, codigoTributario, cfop, unidade, quant, valorUnit, valorProd] = m;
+    itens.push({ codigoProduto, descricaoInline, ncm, codigoTributario, cfop, unidade, quant, valorUnit, valorProd, indice: m.index });
+  }
+  return itens;
+}
+
+function extrairItensLayoutB(texto: string): ItemBruto[] {
+  const itens: ItemBruto[] = [];
+  for (const m of texto.matchAll(REGEX_ITEM_LAYOUT_B)) {
+    const [, codigoProduto, cfop, unidade, quant, valorUnit, valorProd, codigoTributario, ncm] = m;
+    itens.push({ codigoProduto, descricaoInline: "", ncm, codigoTributario, cfop, unidade, quant, valorUnit, valorProd, indice: m.index });
+  }
+  return itens;
+}
+
+/** Quando a descrição não está na mesma linha do código do produto, busca até
+ *  2 linhas não vazias imediatamente antes do match. Para de subir quando a
+ *  linha parece ser a linha de dados de OUTRO item (contém um NCM de 7-8
+ *  dígitos ou 2+ valores decimais), um rótulo do cabeçalho, ou for só
+ *  números/pontuação. */
+function resolverDescricao(texto: string, item: ItemBruto): string {
+  const inline = item.descricaoInline.trim();
+  if (inline) return inline;
+
+  const antes = texto.slice(0, item.indice).split("\n");
+  const linhasDescricao: string[] = [];
+  for (let i = antes.length - 1; i >= 0 && linhasDescricao.length < 2; i--) {
+    const linha = antes[i].trim();
+    if (!linha) continue;
+    const pareceLinhaDeItem = /\d{7,8}/.test(linha) || (linha.match(/\d+[.,]\d+/g)?.length ?? 0) >= 2;
+    if (/^[\d.,\s]+$/.test(linha) || pareceLinhaDeItem || PALAVRAS_ROTULO.test(linha)) break;
+    linhasDescricao.unshift(linha);
+  }
+  return linhasDescricao.join(" ").trim();
 }
 
 export function parseDanfeMercadoria(texto: string, cnpjEcotruck: string): ResultadoDanfeMercadoria | { erro: string } {
@@ -101,19 +172,23 @@ export function parseDanfeMercadoria(texto: string, cnpjEcotruck: string): Resul
 
   const simplesNacional = /OPTANTE PELO SIMPLES NACIONAL/i.test(texto);
 
+  const itensBrutos = extrairItensLayoutA(texto);
+  if (itensBrutos.length === 0) itensBrutos.push(...extrairItensLayoutB(texto));
+
   const itens: ItemNFeParseado[] = [];
   let numeroItem = 1;
-  for (const m of texto.matchAll(REGEX_ITEM)) {
-    const [, codigoProduto, descricao, ncm, codigoTributario, cfop, unidade, quant, valorUnit, valorProd, bcIcms, valorIcms] = m;
+  for (const bruto of itensBrutos) {
+    const { codigoProduto, ncm, codigoTributario, cfop, unidade, quant, valorUnit, valorProd } = bruto;
     const ehSimples = codigoTributario.length === 4 || simplesNacional;
     const origem = Number(codigoTributario[0]);
     const cst = ehSimples ? "" : codigoTributario.slice(1);
     const csosn = ehSimples ? codigoTributario.slice(1) : "";
+    const descricao = resolverDescricao(texto, bruto);
 
     itens.push({
       numeroItem: numeroItem++,
       codigoProduto,
-      descricao: descricao.trim(),
+      descricao,
       ncm,
       cest: "",
       cfop,
@@ -125,9 +200,13 @@ export function parseDanfeMercadoria(texto: string, cnpjEcotruck: string): Resul
       cst,
       csosn,
       modBC: 0,
-      icmsBase: parseMoedaBr(bcIcms) ?? 0,
+      // As colunas de ICMS (base/valor) que vêm após quantidade/valor total
+      // variam de posição e quantidade entre softwares emissores de DANFE —
+      // não são capturadas pelo regex, ficam zeradas (mesma limitação já
+      // documentada para PIS/COFINS abaixo).
+      icmsBase: 0,
       icmsAliquota: 0,
-      icmsValor: parseMoedaBr(valorIcms) ?? 0,
+      icmsValor: 0,
       icmsStBase: 0,
       icmsStAliquota: 0,
       icmsStValor: 0,
@@ -176,6 +255,7 @@ export function parseDanfeMercadoria(texto: string, cnpjEcotruck: string): Resul
   };
 
   if (itens.length === 0) avisos.push("Não foi possível ler a tabela de produtos automaticamente — confira o PDF e cadastre os itens manualmente.");
+  if (itens.length > 0) avisos.push("Base e valor de ICMS por item não são lidos automaticamente do PDF (posição variável entre layouts) — confira e complete manualmente se for apurar crédito de ICMS.");
   if (!nota.emitNome) avisos.push("Nome do emitente não encontrado automaticamente.");
 
   return { nota, itensNaoLidos: itens.length === 0, avisos };
