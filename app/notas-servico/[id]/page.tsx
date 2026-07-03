@@ -100,7 +100,7 @@ export default function NotaServicoDetalhePage({ params }: { params: Promise<{ i
 
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-6">
-      <Link href="/notas-servico" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+      <Link href="/notas" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-4" /> Voltar
       </Link>
 

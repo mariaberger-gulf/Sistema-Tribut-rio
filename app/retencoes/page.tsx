@@ -48,7 +48,7 @@ export default function RetencoesPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-8 max-w-[1920px] mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Retenções na Fonte</h1>
         <p className="text-sm text-muted-foreground mt-1">
