@@ -25,7 +25,8 @@ interface ResultadoItem {
 async function criarNotaFiscal(
   parsed: NotaFiscalParseada,
   textoBruto: string,
-  avisos: string[]
+  avisos: string[],
+  arquivoPdf: Buffer | null
 ): Promise<{ ok: boolean; id?: number; erro?: string; avisos?: string[] }> {
   const existente = await prisma.notaFiscal.findUnique({ where: { chaveAcesso: parsed.chaveAcesso } });
   if (existente) return { ok: false, erro: "Nota fiscal já importada anteriormente (chave de acesso duplicada)." };
@@ -63,6 +64,7 @@ async function criarNotaFiscal(
       valorCofins: parsed.valorCofins,
       valorTotal: parsed.valorTotal,
       xmlBruto: textoBruto,
+      arquivoPdf,
       status: avisos.length > 0 ? "Revisão Pendente" : "Processada",
     },
   });
@@ -75,7 +77,8 @@ async function criarNotaServico(
   parseada: NotaServicoParseada,
   textoBruto: string,
   arquivoNome: string,
-  empresaEcotruck: Empresa
+  empresaEcotruck: Empresa,
+  arquivoPdf: Buffer | null
 ): Promise<{ ok: boolean; id?: number; erro?: string; status?: string }> {
   if (!parseada.tomadorNome && parseada.tomadorCnpj && empresaEcotruck && parseada.tomadorCnpj.replace(/\D/g, "") === empresaEcotruck.cnpj.replace(/\D/g, "")) {
     parseada.tomadorNome = empresaEcotruck.razaoSocial;
@@ -115,6 +118,7 @@ async function criarNotaServico(
       valorLiquido: parseada.valorLiquido,
       camposNaoEncontrados: parseada.camposNaoEncontrados,
       textoExtraido: textoBruto,
+      arquivoPdf,
     },
   });
 
@@ -143,7 +147,7 @@ export async function POST(request: NextRequest) {
         if (nomeMin.endsWith(".xml")) {
           const textoBruto = await file.text();
           const parsed = parseNFeXml(textoBruto);
-          const r = await criarNotaFiscal(parsed, textoBruto, []);
+          const r = await criarNotaFiscal(parsed, textoBruto, [], null);
           resultados.push({ arquivo: file.name, tipo: "fiscal", ...r });
           continue;
         }
@@ -168,7 +172,7 @@ export async function POST(request: NextRequest) {
             resultados.push({ arquivo: file.name, ok: false, erro: resultado.erro });
             continue;
           }
-          const r = await criarNotaFiscal(resultado.nota, textoBruto, resultado.avisos);
+          const r = await criarNotaFiscal(resultado.nota, textoBruto, resultado.avisos, buffer);
           resultados.push({ arquivo: file.name, tipo: "fiscal", ...r });
           continue;
         }
@@ -178,7 +182,7 @@ export async function POST(request: NextRequest) {
           tipoDoc === "nfcom" ? parseNfcom(textoBruto, empresa?.cnpj ?? "") :
           parseNfseGenerico(textoBruto, empresa?.cnpj ?? "");
 
-        const r = await criarNotaServico(parseada, textoBruto, file.name, empresa);
+        const r = await criarNotaServico(parseada, textoBruto, file.name, empresa, buffer);
         resultados.push({ arquivo: file.name, tipo: "servico", ...r });
       } catch (err) {
         const erro = err instanceof NFeParseError ? err.message : "Erro inesperado ao processar o arquivo.";

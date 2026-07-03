@@ -94,6 +94,7 @@ model NotaFiscal {
   valorCofins       Float    @default(0)
   valorTotal        Float
   xmlBruto          String
+  arquivoPdf        Bytes? // PDF original (DANFE), quando a nota foi importada em PDF — null para notas importadas via XML
   status            String   @default("Processada") // Processada | Erro
   erroProcessamento String?
   createdAt         DateTime @default(now())
@@ -345,6 +346,7 @@ model NotaServico {
 
   camposNaoEncontrados String[] @default([])
   textoExtraido        String   @default("")
+  arquivoPdf           Bytes? // PDF original, quando a nota foi importada em PDF
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

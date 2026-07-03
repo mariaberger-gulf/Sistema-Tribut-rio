@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileText, Trash2 } from "lucide-react";
 import { UploadNotas } from "@/components/notas/UploadNotas";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -26,6 +26,7 @@ interface NotaResumo {
   totalErros: number;
   totalAvisos: number;
   retencao: RetencaoResumo | null;
+  temPdf: boolean;
 }
 
 function CelulaRetencao({ nota }: { nota: NotaResumo }) {
@@ -100,6 +101,7 @@ export default function NotasPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10"></TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Documento</TableHead>
               <TableHead>Contraparte</TableHead>
@@ -113,16 +115,33 @@ export default function NotasPage() {
           <TableBody>
             {loading && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">Carregando...</TableCell>
+                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">Carregando...</TableCell>
               </TableRow>
             )}
             {!loading && notas.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">Nenhuma nota importada ainda.</TableCell>
+                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nenhuma nota importada ainda.</TableCell>
               </TableRow>
             )}
             {notas.map((n) => (
               <TableRow key={`${n.tipo}-${n.id}`}>
+                <TableCell>
+                  {n.temPdf ? (
+                    <a
+                      href={n.tipo === "fiscal" ? `/api/notas-fiscais/${n.id}/pdf` : `/api/notas-servico/${n.id}/pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-primary"
+                      title="Abrir PDF original"
+                    >
+                      <FileText className="size-4" />
+                    </a>
+                  ) : (
+                    <span title="PDF original não disponível para esta nota">
+                      <FileText className="size-4 text-muted-foreground/30" />
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell>
                   <Badge variant="outline">{n.tipo === "fiscal" ? "Mercadoria" : "Serviço"}</Badge>
                 </TableCell>

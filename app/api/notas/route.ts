@@ -17,12 +17,21 @@ export async function GET() {
   const [notasFiscais, notasServico] = await Promise.all([
     prisma.notaFiscal.findMany({
       orderBy: { dataEmissao: "desc" },
-      include: {
+      select: {
+        id: true, numero: true, serie: true, emitNome: true, dataEmissao: true,
+        valorTotal: true, status: true, arquivoPdf: true,
         _count: { select: { itens: true } },
         itens: { select: { validacoes: { select: { severidade: true } } } },
       },
     }),
-    prisma.notaServico.findMany({ orderBy: [{ dataEmissao: "desc" }, { createdAt: "desc" }] }),
+    prisma.notaServico.findMany({
+      orderBy: [{ dataEmissao: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true, numero: true, arquivoOrigem: true, prestadorNome: true, dataEmissao: true,
+        valorServico: true, status: true, itemServicoCodigoBase: true, prestadorSimplesNacional: true,
+        pccDeclarado: true, irrfDeclarado: true, arquivoPdf: true,
+      },
+    }),
   ]);
 
   const codigosBase = [...new Set(notasServico.map((n) => n.itemServicoCodigoBase).filter((c): c is string => !!c))];
@@ -47,6 +56,7 @@ export async function GET() {
       totalErros: erros,
       totalAvisos: avisos,
       retencao: null as RetencaoResumo | null,
+      temPdf: !!n.arquivoPdf,
     };
   });
 
@@ -77,6 +87,7 @@ export async function GET() {
       totalErros: 0,
       totalAvisos: 0,
       retencao,
+      temPdf: !!n.arquivoPdf,
     };
   });
 
