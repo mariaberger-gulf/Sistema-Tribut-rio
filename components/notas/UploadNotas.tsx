@@ -1,18 +1,29 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Upload, Loader2, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
+import { Upload, Loader2, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ResultadoUpload {
   arquivo: string;
   ok: boolean;
-  notaServicoId?: number;
-  status?: string;
+  tipo?: "fiscal" | "servico";
+  id?: number;
   erro?: string;
+  avisos?: string[];
+  status?: string;
 }
 
-export function UploadNotaServico({ onSucesso }: { onSucesso: () => void }) {
+function precisaRevisao(r: ResultadoUpload): boolean {
+  if (r.avisos && r.avisos.length > 0) return true;
+  if (r.tipo === "servico" && r.status !== "Confirmada") return true;
+  return false;
+}
+
+/** Botão único de importação — aceita XML/PDF de NF-e (mercadoria) e PDF de
+ *  NFS-e/NFCom (serviço); o tipo de documento é detectado automaticamente no
+ *  servidor por arquivo, então o usuário não precisa escolher o botão certo. */
+export function UploadNotas({ onSucesso }: { onSucesso: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [enviando, setEnviando] = useState(false);
   const [resultados, setResultados] = useState<ResultadoUpload[]>([]);
@@ -26,7 +37,7 @@ export function UploadNotaServico({ onSucesso }: { onSucesso: () => void }) {
     Array.from(files).forEach((f) => formData.append("arquivos", f));
 
     try {
-      const res = await fetch("/api/notas-servico/upload", { method: "POST", body: formData });
+      const res = await fetch("/api/notas/upload", { method: "POST", body: formData });
       const data = await res.json();
       if (res.ok) {
         setResultados(data.resultados ?? []);
@@ -47,29 +58,35 @@ export function UploadNotaServico({ onSucesso }: { onSucesso: () => void }) {
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf"
+        accept=".xml,.pdf"
         multiple
         className="hidden"
         onChange={(e) => handleFiles(e.target.files)}
       />
       <Button onClick={() => inputRef.current?.click()} disabled={enviando}>
         {enviando ? <Loader2 className="animate-spin" /> : <Upload />}
-        {enviando ? "Processando..." : "Importar PDF de NFS-e / NFCom"}
+        {enviando ? "Processando..." : "Importar nota (XML ou PDF)"}
       </Button>
 
       {resultados.length > 0 && (
         <div className="rounded-lg border border-border bg-card p-3 text-sm space-y-1.5 max-w-xl">
           {resultados.map((r, i) => (
             <div key={i} className="flex items-start gap-2">
-              {r.ok
-                ? r.status === "Confirmada"
-                  ? <CheckCircle2 className="size-4 text-emerald-600 mt-0.5 shrink-0" />
-                  : <AlertTriangle className="size-4 text-amber-600 mt-0.5 shrink-0" />
-                : <XCircle className="size-4 text-red-600 mt-0.5 shrink-0" />}
+              {r.ok ? (
+                precisaRevisao(r) ? (
+                  <AlertTriangle className="size-4 text-amber-600 mt-0.5 shrink-0" />
+                ) : (
+                  <CheckCircle2 className="size-4 text-emerald-600 mt-0.5 shrink-0" />
+                )
+              ) : (
+                <XCircle className="size-4 text-red-600 mt-0.5 shrink-0" />
+              )}
               <span className="truncate">
                 <span className="font-medium">{r.arquivo}</span>
                 {r.ok
-                  ? r.status === "Confirmada" ? " — importada e confirmada automaticamente." : " — importada, necessita revisão manual."
+                  ? precisaRevisao(r)
+                    ? ` — importada como nota de ${r.tipo === "fiscal" ? "mercadoria" : "serviço"}, mas necessita revisão manual.`
+                    : ` — importada com sucesso como nota de ${r.tipo === "fiscal" ? "mercadoria" : "serviço"}.`
                   : ` — ${r.erro}`}
               </span>
             </div>

@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Trash2 } from "lucide-react";
-import { UploadXml } from "@/components/notas-fiscais/UploadXml";
-import { UploadNotaServico } from "@/components/notas-servico/UploadNotaServico";
+import { UploadNotas } from "@/components/notas/UploadNotas";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatMoeda, formatData } from "@/lib/utils";
@@ -95,10 +94,7 @@ export default function NotasPage() {
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <UploadXml onSucesso={carregar} />
-        <UploadNotaServico onSucesso={carregar} />
-      </div>
+      <UploadNotas onSucesso={carregar} />
 
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <Table>
