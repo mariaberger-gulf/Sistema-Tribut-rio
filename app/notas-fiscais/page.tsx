@@ -91,7 +91,9 @@ export default function NotasFiscaisPage() {
                 <TableCell>{formatMoeda(n.valorTotal)}</TableCell>
                 <TableCell>{n.totalItens}</TableCell>
                 <TableCell>
-                  {n.totalErros > 0 ? (
+                  {n.status === "Revisão Pendente" ? (
+                    <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200"><AlertTriangle />Revisão pendente (PDF)</Badge>
+                  ) : n.totalErros > 0 ? (
                     <Badge variant="destructive"><AlertTriangle />{n.totalErros} erro(s)</Badge>
                   ) : n.totalAvisos > 0 ? (
                     <Badge variant="outline"><AlertTriangle />{n.totalAvisos} aviso(s)</Badge>

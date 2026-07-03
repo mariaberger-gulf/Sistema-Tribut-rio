@@ -306,3 +306,48 @@ model SimplesNacionalFaixa {
 
   @@map("simples_nacional_faixas")
 }
+
+/// Nota fiscal de serviço (NFS-e/NFCom) importada em PDF, usada para
+/// alimentar a apuração de Retenções na Fonte. Documentos no padrão nacional
+/// (DANFSe) e NFCom têm extração confiável; layouts próprios de município
+/// ("municipal_generico") são sempre importados como "Necessita revisão".
+model NotaServico {
+  id                Int      @id @default(autoincrement())
+  arquivoOrigem     String
+  tipoDocumento     String // "danfse_nacional" | "nfcom" | "municipal_generico"
+  status            String   @default("Necessita revisão") // "Necessita revisão" | "Confirmada"
+
+  chaveAcesso       String?
+  numero            String   @default("")
+  dataEmissao       DateTime?
+  competencia       String   @default("")
+
+  prestadorCnpj            String  @default("")
+  prestadorNome             String  @default("")
+  prestadorMunicipio        String  @default("")
+  prestadorSimplesNacional  Boolean @default(false)
+
+  tomadorCnpj       String  @default("")
+  tomadorNome       String  @default("")
+  tomadorMunicipio  String  @default("")
+
+  codigoTributacaoNacional String @default("")
+  itemServicoCodigoBase    String?
+
+  descricaoServico  String  @default("")
+  valorServico      Float?
+  aliquotaIss       Float?
+  issRetido         Boolean?
+  valorIss          Float?
+  irrfDeclarado     Float?
+  pccDeclarado      Float?
+  valorLiquido      Float?
+
+  camposNaoEncontrados String[] @default([])
+  textoExtraido        String   @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("notas_servico")
+}

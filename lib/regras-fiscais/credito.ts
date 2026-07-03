@@ -1,4 +1,4 @@
-import type { ItemNFeParseado, NotaFiscalParseada } from "@/lib/xml/parse-nfe";
+import type { ItemNFeParseado } from "@/lib/xml/parse-nfe";
 
 export interface ResultadoCredito {
   tipoImposto: "ICMS" | "PIS" | "COFINS";
@@ -26,11 +26,11 @@ function sufixoCfop(cfop: string): string {
 }
 
 export function apurarCreditoIcms(
-  nota: Pick<NotaFiscalParseada, "tpNF">,
+  entradaParaEmpresa: boolean,
   item: ItemNFeParseado
 ): ResultadoCredito {
-  if (nota.tpNF !== 0) {
-    return { tipoImposto: "ICMS", elegivel: false, valorCredito: 0, motivo: "Operação de saída não gera apuração de crédito." };
+  if (!entradaParaEmpresa) {
+    return { tipoImposto: "ICMS", elegivel: false, valorCredito: 0, motivo: "A empresa é a emitente (venda) desta nota — apuração de crédito só se aplica a compras." };
   }
 
   const sufixo = sufixoCfop(item.cfop);
@@ -60,7 +60,7 @@ export function apurarCreditoIcms(
 
 export function apurarCreditoPisCofins(
   regimeTributario: string | undefined,
-  nota: Pick<NotaFiscalParseada, "tpNF">,
+  entradaParaEmpresa: boolean,
   item: ItemNFeParseado
 ): ResultadoCredito[] {
   const base: Omit<ResultadoCredito, "tipoImposto"> = {
@@ -69,10 +69,11 @@ export function apurarCreditoPisCofins(
     motivo: "",
   };
 
-  if (nota.tpNF !== 0) {
+  if (!entradaParaEmpresa) {
+    const motivo = "A empresa é a emitente (venda) desta nota — apuração de crédito só se aplica a compras.";
     return [
-      { tipoImposto: "PIS", ...base, motivo: "Operação de saída não gera apuração de crédito." },
-      { tipoImposto: "COFINS", ...base, motivo: "Operação de saída não gera apuração de crédito." },
+      { tipoImposto: "PIS", ...base, motivo },
+      { tipoImposto: "COFINS", ...base, motivo },
     ];
   }
 
@@ -95,15 +96,20 @@ export function apurarCreditoPisCofins(
 
   const CST_SEM_CREDITO = ["70", "71", "72", "73", "74", "75", "98", "99", "04", "06", "07", "08", "09", "49"];
 
+  const motivoSemDado = (tributo: string, cst: string) =>
+    cst === ""
+      ? `${tributo} não consta neste documento (não é impresso no DANFE) — sem base para apurar crédito a partir do PDF.`
+      : `CST de ${tributo} "${cst}" não gera direito a crédito nesta entrada.`;
+
   const resultado: ResultadoCredito[] = [];
   if (CST_SEM_CREDITO.includes(item.pisCst) || item.pisValor <= 0) {
-    resultado.push({ tipoImposto: "PIS", elegivel: false, valorCredito: 0, motivo: `CST de PIS "${item.pisCst}" não gera direito a crédito nesta entrada.` });
+    resultado.push({ tipoImposto: "PIS", elegivel: false, valorCredito: 0, motivo: motivoSemDado("PIS", item.pisCst) });
   } else {
     resultado.push({ tipoImposto: "PIS", elegivel: true, valorCredito: item.pisValor, motivo: "Insumo tributado no regime não-cumulativo — crédito de PIS admitido." });
   }
 
   if (CST_SEM_CREDITO.includes(item.cofinsCst) || item.cofinsValor <= 0) {
-    resultado.push({ tipoImposto: "COFINS", elegivel: false, valorCredito: 0, motivo: `CST de COFINS "${item.cofinsCst}" não gera direito a crédito nesta entrada.` });
+    resultado.push({ tipoImposto: "COFINS", elegivel: false, valorCredito: 0, motivo: motivoSemDado("COFINS", item.cofinsCst) });
   } else {
     resultado.push({ tipoImposto: "COFINS", elegivel: true, valorCredito: item.cofinsValor, motivo: "Insumo tributado no regime não-cumulativo — crédito de COFINS admitido." });
   }
@@ -113,8 +119,8 @@ export function apurarCreditoPisCofins(
 
 export function apurarCreditoItem(
   regimeTributario: string | undefined,
-  nota: Pick<NotaFiscalParseada, "tpNF">,
+  entradaParaEmpresa: boolean,
   item: ItemNFeParseado
 ): ResultadoCredito[] {
-  return [apurarCreditoIcms(nota, item), ...apurarCreditoPisCofins(regimeTributario, nota, item)];
+  return [apurarCreditoIcms(entradaParaEmpresa, item), ...apurarCreditoPisCofins(regimeTributario, entradaParaEmpresa, item)];
 }

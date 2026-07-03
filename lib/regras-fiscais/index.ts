@@ -13,8 +13,17 @@ export const ANOS_SIMULACAO = [2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033];
 export async function processarItensNota(
   notaFiscalId: number,
   parsed: NotaFiscalParseada,
-  regimeTributario: string | undefined
+  empresa: { cnpj: string; regimeTributario: string } | null | undefined
 ) {
+  // A apuração de crédito depende de a empresa (Ecotruck) ser a DESTINATÁRIA
+  // desta nota (compra), não do tpNF — que reflete a operação de quem EMITIU
+  // o documento (numa compra normal, o emitente sempre registra tpNF=1/saída,
+  // mesmo sendo uma entrada de mercadoria para quem compra). Compara só
+  // dígitos: o CNPJ pode vir formatado (PDF) ou só números (XML).
+  const soDigitos = (v: string) => v.replace(/\D/g, "");
+  const entradaParaEmpresa = !!empresa && soDigitos(empresa.cnpj) === soDigitos(parsed.destCnpj);
+
+
   const tabela = await prisma.tabelaAliquota.findMany({ where: { ativo: true } });
   const configuracao =
     (await prisma.configuracaoReforma.findUnique({ where: { id: 1 } })) ??
@@ -72,7 +81,7 @@ export async function processarItensNota(
       });
     }
 
-    const creditos = apurarCreditoItem(regimeTributario, parsed, itemParseado);
+    const creditos = apurarCreditoItem(empresa?.regimeTributario, entradaParaEmpresa, itemParseado);
     await prisma.creditoTributario.createMany({
       data: creditos.map((c) => ({
         itemNotaFiscalId: item.id,
